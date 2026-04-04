@@ -1,0 +1,116 @@
+# NEETPrep AI - Worklog
+
+---
+Task ID: 1
+Agent: main-architect
+Task: Project setup and architecture design
+
+Work Log:
+- Analyzed existing Next.js 16 project structure
+- Read package.json, prisma schema, existing components
+- Designed complete system architecture
+
+Stage Summary:
+- Project uses Next.js 16 with App Router, Tailwind CSS 4, shadcn/ui
+- SQLite with Prisma for database
+- z-ai-web-dev-sdk for LLM question generation
+
+---
+Task ID: 2
+Agent: main-architect
+Task: Database schema design and creation
+
+Work Log:
+- Designed Prisma schema with User, Question, ExamSession, ExamAnswer models
+- Pushed schema to SQLite database
+- Made userId optional in ExamSession for flexibility
+
+Stage Summary:
+- Schema includes: User, Question (180 questions), ExamSession, ExamAnswer
+- SQLite database at db/custom.db
+- Schema pushed and verified
+
+---
+Task ID: 3
+Agent: question-generator
+Task: Generate 180 NEET questions via LLM and seed database
+
+Work Log:
+- Generated 12 batches of questions using z-ai CLI (3 Physics, 3 Chemistry, 6 Biology)
+- Fixed malformed JSON in 3 batches
+- Created seed script at scripts/seed-questions.ts
+- Seeded SQLite database with all questions
+- Trimmed excess to exactly 180
+
+Stage Summary:
+- Total questions: 180 (Physics: 45, Chemistry: 45, Biology: 90)
+- All questions have explanations
+- Questions cover real NEET topics
+
+---
+Task ID: 4
+Agent: main-architect
+Task: Build all API routes
+
+Work Log:
+- Created /api/auth/register (bcrypt password hashing)
+- Created /api/auth/login (credential validation)
+- Created /api/questions (serves all 180 questions)
+- Created /api/exam/start (creates exam session)
+- Created /api/exam/submit (full evaluation engine: +4/-1 scoring, subject breakdown, weak topic detection, rank prediction)
+- Created /api/exam/results (fetches session results)
+- Created /api/user/history (exam history)
+
+Stage Summary:
+- All 7 API routes implemented and tested
+- Full scoring engine with +4/-1/0 marking scheme
+- Rank prediction based on score percentiles
+- Weak topic detection (<40% accuracy threshold)
+
+---
+Task ID: 5-11
+Agent: main-architect
+Task: Build complete frontend
+
+Work Log:
+- Created Zustand stores (app-store, exam-store)
+- Built LandingPage with hero, features, pricing (Free/Pro)
+- Built AuthPage with login/register tabs
+- Built Dashboard with stats, exam history, start CTA
+- Built ExamInstructions with rules and exam pattern
+- Built ExamUI with full anti-cheat integration
+- Built QuestionNav with subject-wise grid palette
+- Built QuestionCard with option selection and result display
+- Built ExamTimer with low/critical time warnings
+- Built ViolationAlert component
+- Built Proctoring component with webcam + skin-tone face detection
+- Built ResultsPage with overview, analysis, and answer review tabs
+- Created main page.tsx with state-based routing
+
+Stage Summary:
+- Complete SPA with 6 views (landing, auth, dashboard, instructions, exam, results)
+- Anti-cheat: tab switch, copy/paste, right-click, devtools detection, fullscreen
+- Proctoring: webcam with skin-tone based face detection
+- Results: subject breakdown, weak topics, rank prediction, answer review
+
+---
+Task ID: 12
+Agent: main-architect
+Task: Final integration testing and validation
+
+Work Log:
+- Verified 180 questions in database (45/45/90)
+- Tested all API endpoints
+- Ran full exam flow: start -> answer all -> submit -> results
+- Score 720/720 confirmed when all correct
+- ESLint passed with no errors
+
+Stage Summary:
+- ✅ Total questions = 180
+- ✅ Distribution correct (45 Physics, 45 Chemistry, 90 Biology)
+- ✅ All explanations present
+- ✅ APIs working
+- ✅ Frontend connected to backend
+- ✅ Anti-cheat enforced
+- ✅ Proctoring active
+- ✅ Clean lint

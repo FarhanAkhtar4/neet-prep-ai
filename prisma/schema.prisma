@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  passwordHash  String
+  plan          String   @default("free") // "free" | "pro"
+  avatar        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  examSessions  ExamSession[]
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  subject       String   // "Physics" | "Chemistry" | "Biology"
+  topic         String
+  difficulty    String   // "Easy" | "Medium" | "Hard"
+  questionText  String
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctAnswer String   // "A" | "B" | "C" | "D"
+  explanation   String
+  examAnswers   ExamAnswer[]
+}
+
+model ExamSession {
+  id            String        @id @default(cuid())
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id])
+  status        String        @default("in_progress") // "in_progress" | "completed" | "auto_submitted"
+  startedAt     DateTime      @default(now())
+  completedAt   DateTime?
+  violations    Int           @default(0)
+  totalScore    Int?
+  correctCount  Int?
+  wrongCount    Int?
+  unansweredCount Int?
+  physicsScore  Int?
+  chemistryScore Int?
+  biologyScore  Int?
+  answers       ExamAnswer[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model ExamAnswer {
+  id            String      @id @default(cuid())
+  sessionId     String
+  session       ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      Question    @relation(fields: [questionId], references: [id])
+  selectedAnswer String?    // "A" | "B" | "C" | "D" | null (unanswered)
+  isCorrect     Boolean?
+  createdAt     DateTime    @default(now())
+}
