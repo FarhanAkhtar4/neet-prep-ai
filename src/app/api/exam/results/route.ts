@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,23 +12,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const session = await db.examSession.findUnique({
-      where: { id: sessionId },
-      include: {
-        answers: {
-          include: { question: true },
-        },
-      },
+    // In serverless (Vercel), session history is stateless.
+    // Results are computed client-side and stored in Zustand.
+    return NextResponse.json({
+      success: false,
+      error: 'Session results are available in the exam UI. This endpoint is deprecated on serverless.',
     });
-
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Session not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ success: true, session });
   } catch (error) {
     console.error('Results fetch error:', error);
     return NextResponse.json(
