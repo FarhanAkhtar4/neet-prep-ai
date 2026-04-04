@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
-    const { questionIds } = await req.json();
+    await req.json(); // validate body exists
 
-    const session = await db.examSession.create({
-      data: {
-        status: 'in_progress',
-      },
-    });
+    // Generate a unique session ID
+    const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
     return NextResponse.json({
       success: true,
-      sessionId: session.id,
+      sessionId,
     });
   } catch (error) {
     console.error('Exam start error:', error);

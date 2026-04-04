@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import bcrypt from 'bcryptjs';
+import { loginUser } from '@/data/auth-service';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,31 +12,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = await db.user.findUnique({ where: { email } });
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid credentials' },
-        { status: 401 }
-      );
-    }
-
-    const isValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isValid) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid credentials' },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        plan: user.plan,
-      },
-    });
+    const result = await loginUser(email, password);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(
