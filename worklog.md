@@ -140,3 +140,25 @@ Stage Summary:
 - App now properly handles SSR/hydration with useEffect-based hydration
 - Error boundaries catch and gracefully display any runtime errors
 - Clean build: 0 lint errors, 0 build warnings
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix "idx is not defined" runtime error and all client-side issues
+
+Work Log:
+- Audited all client-side files (page.tsx, all components, stores, API routes)
+- Found CRITICAL BUG in QuestionNav.tsx line 77: `idx` variable from outer `.map()` callback was referenced in chained `.map()` callback where it was out of scope
+- Fixed by renaming to `originalIdx` and using `q.originalIdx` throughout the chained map operations
+- Removed unused imports (Maximize from ExamUI.tsx, Button from QuestionNav.tsx)
+- Removed unused SUBJECT_COLORS constant from QuestionNav.tsx
+- Fixed resizable.tsx type error (react-resizable-panels v4 API changes: Group/Panel/Separator)
+- Installed react-resizable-panels peer dependency
+- Excluded examples/, skills/, scripts/ from TypeScript compilation
+- Enabled strict TypeScript checking (ignoreBuildErrors: false)
+- Build passes with zero errors
+
+Stage Summary:
+- Root cause: ReferenceError in QuestionNav.tsx - `idx` was not in scope in chained .map()
+- All fixes verified with clean `next build` (0 TypeScript errors)
+- Pushed to GitHub: commit ed49abb
+- Vercel will auto-deploy from push
