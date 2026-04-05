@@ -114,3 +114,29 @@ Stage Summary:
 - ✅ Anti-cheat enforced
 - ✅ Proctoring active
 - ✅ Clean lint
+
+---
+Task ID: 13
+Agent: main-architect
+Task: Fix client-side crash on Vercel deployment
+
+Work Log:
+- Diagnosed root cause of "client-side exception" on neet-prep-ai.vercel.app
+- Read all component files, API routes, store files, and config files
+- Identified 3 root causes:
+  1. page.tsx called setState (hydrate()) synchronously during render phase — causes React 19 concurrent mode issues
+  2. src/lib/db.ts imported @prisma/client which was NOT installed — could crash bundler/resolver
+  3. No error boundaries — any component error crashed entire app
+- Fixed page.tsx: moved hydrate() to useEffect, used store _hydrated flag for hydration detection
+- Added error.tsx (page-level error boundary) and global-error.tsx
+- Deleted dead src/lib/db.ts
+- Changed exam-service.ts from dynamic import to static import for reliability
+- Removed prisma scripts from package.json
+- Verified: lint passes, build succeeds, page loads correctly, API returns 180 questions
+- Pushed commit dd02ca6 to GitHub, Vercel auto-deploys
+
+Stage Summary:
+- Fixed all client-side crash issues
+- App now properly handles SSR/hydration with useEffect-based hydration
+- Error boundaries catch and gracefully display any runtime errors
+- Clean build: 0 lint errors, 0 build warnings
