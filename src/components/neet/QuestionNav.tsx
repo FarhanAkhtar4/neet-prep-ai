@@ -2,13 +2,6 @@
 
 import { useExamStore } from '@/store/exam-store';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-
-const SUBJECT_COLORS: Record<string, string> = {
-  Physics: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800',
-  Chemistry: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800',
-  Biology: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800',
-};
 
 const STATUS_COLORS: Record<string, string> = {
   answered: 'bg-emerald-600 text-white',
@@ -70,23 +63,23 @@ export function QuestionNav() {
           {/* Question grid for this subject */}
           <div className="grid grid-cols-6 gap-1.5 mb-3">
             {questions
-              .map((q, idx) => ({ ...q, idx }))
+              .map((q, originalIdx) => ({ ...q, originalIdx }))
               .filter((q) => q.subject === subject.subject)
               .map((q) => {
                 const status = getQuestionStatus(q.id);
-                const isCurrent = idx === currentQuestionIndex;
+                const isCurrent = q.originalIdx === currentQuestionIndex;
                 return (
                   <button
                     key={q.id}
-                    onClick={() => goToQuestion(q.idx)}
+                    onClick={() => goToQuestion(q.originalIdx)}
                     className={`h-8 w-8 rounded text-xs font-medium transition-all ${
                       STATUS_COLORS[status]
                     } ${isCurrent ? STATUS_COLORS.current : ''} ${
                       q.difficulty === 'Hard' ? 'font-bold' : ''
                     }`}
-                    title={`Q${q.idx + 1} - ${q.topic} (${q.difficulty})`}
+                    title={`Q${q.originalIdx + 1} - ${q.topic} (${q.difficulty})`}
                   >
-                    {q.idx + 1}
+                    {q.originalIdx + 1}
                   </button>
                 );
               })}
