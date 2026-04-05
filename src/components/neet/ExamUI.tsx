@@ -13,9 +13,11 @@ import {
   Flag,
   Send,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +54,8 @@ export function ExamUI() {
     markForReview,
     submitExam,
     getSubjectBreakdown,
+    clearError,
+    errorType,
   } = useExamStore();
 
   const currentQuestion = questions[currentQuestionIndex];
@@ -307,8 +311,20 @@ export function ExamUI() {
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto p-4 sm:p-6">
             {errorMessage && (
-              <div className="bg-destructive/10 text-destructive p-3 rounded-lg mb-4 text-sm">
-                {errorMessage}
+              <div className={cn(
+                'p-4 rounded-lg mb-4 text-sm border flex items-start gap-3',
+                errorType === 'network'
+                  ? 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800'
+                  : 'bg-destructive/10 text-destructive border-destructive/20'
+              )}>
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <span className={cn('font-medium block', errorType === 'network' && 'text-red-600 dark:text-red-400')}>
+                    {errorType === 'network' ? 'Connection Lost' : 'Error'}
+                  </span>
+                  <span className="block mt-0.5 opacity-80">{errorMessage}</span>
+                </div>
+                <button onClick={clearError} className="shrink-0 text-xs opacity-60 hover:opacity-100">Dismiss</button>
               </div>
             )}
 

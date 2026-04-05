@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiFetch, isApiError, type ApiError } from '@/lib/api';
 
 export interface Question {
   id: string;
@@ -38,7 +39,13 @@ export interface ExamResult {
   timeTaken: string;
 }
 
-type AnswerStatus = 'unanswered' | 'answered' | 'marked';
+export type AnswerStatus = 'unanswered' | 'answered' | 'marked';
+
+export interface ExamApiError {
+  message: string;
+  isNetworkError: boolean;
+  isServerError: boolean;
+}
 
 interface ExamState {
   // Exam data
@@ -66,6 +73,7 @@ interface ExamState {
   isExamLoading: boolean;
   isSubmitting: boolean;
   errorMessage: string | null;
+  errorType: 'none' | 'network' | 'server' | 'invalid';
 
   // Actions
   loadQuestions: () => Promise<boolean>;
@@ -77,10 +85,11 @@ interface ExamState {
   prevQuestion: () => void;
   startTimer: () => void;
   stopTimer: () => void;
-  addViolation: () => boolean; // returns true if should auto-submit
+  addViolation: () => boolean;
   submitExam: () => Promise<void>;
   autoSubmit: () => Promise<void>;
   resetExam: () => void;
+  clearError: () => void;
   getQuestionStatus: (questionId: string) => AnswerStatus;
   getSubjectBreakdown: () => {
     subject: string;
@@ -90,6 +99,22 @@ interface ExamState {
     unanswered: number;
   }[];
   jumpToSubject: (subject: string) => void;
+}
+
+function classifyError(err: unknown): ExamApiError {
+  if (isApiError(err)) {
+    const apiErr = err as ApiError;
+    return {
+      message: apiErr.message,
+      isNetworkError: apiErr.type === 'network',
+      isServerError: apiErr.type === 'server',
+    };
+  }
+  return {
+    message: 'An unexpected error occurred. Please try again.',
+    isNetworkError: false,
+    isServerError: false,
+  };
 }
 
 export const useExamStore = create<ExamState>()((set, get) => ({
@@ -107,24 +132,31 @@ export const useExamStore = create<ExamState>()((set, get) => ({
   isExamLoading: false,
   isSubmitting: false,
   errorMessage: null,
+  errorType: 'none',
 
   loadQuestions: async () => {
-    set({ isExamLoading: true, errorMessage: null });
+    set({ isExamLoading: true, errorMessage: null, errorType: 'none' });
     try {
-      const res = await fetch('/api/questions');
-      const data = await res.json();
-      if (data.success && data.questions.length === 180) {
+      const data = await apiFetch<{ success: boolean; questions: Question[]; count: number; error?: string }>('/api/questions');
+
+      if (data.questions && data.questions.length === 180) {
         set({ questions: data.questions, isExamLoading: false });
         return true;
       }
+
       set({
-        errorMessage: data.error || 'Failed to load questions',
+        errorMessage: data.questions
+          ? `Expected 180 questions but received ${data.questions.length}. Data may be corrupted.`
+          : 'Failed to load questions. The question bank may be unavailable.',
+        errorType: 'invalid',
         isExamLoading: false,
       });
       return false;
     } catch (err) {
+      const classified = classifyError(err);
       set({
-        errorMessage: 'Network error. Please try again.',
+        errorMessage: classified.message,
+        errorType: classified.isNetworkError ? 'network' : classified.isServerError ? 'server' : 'invalid',
         isExamLoading: false,
       });
       return false;
@@ -135,13 +167,12 @@ export const useExamStore = create<ExamState>()((set, get) => ({
     const { questions } = get();
     if (questions.length === 0) return;
 
+    set({ errorMessage: null, errorType: 'none' });
     try {
-      const res = await fetch('/api/exam/start', {
+      const data = await apiFetch<{ success: boolean; sessionId: string; error?: string }>('/api/exam/start', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questionIds: questions.map((q) => q.id) }),
       });
-      const data = await res.json();
       if (data.success) {
         set({
           sessionId: data.sessionId,
@@ -153,13 +184,21 @@ export const useExamStore = create<ExamState>()((set, get) => ({
           violations: 0,
           result: null,
           errorMessage: null,
+          errorType: 'none',
         });
         get().startTimer();
       } else {
-        set({ errorMessage: data.error || 'Failed to start exam' });
+        set({
+          errorMessage: data.error || 'Failed to start the exam session.',
+          errorType: 'invalid',
+        });
       }
-    } catch {
-      set({ errorMessage: 'Network error. Please try again.' });
+    } catch (err) {
+      const classified = classifyError(err);
+      set({
+        errorMessage: classified.message,
+        errorType: classified.isNetworkError ? 'network' : 'server',
+      });
     }
   },
 
@@ -236,41 +275,51 @@ export const useExamStore = create<ExamState>()((set, get) => ({
   },
 
   submitExam: async () => {
-    const { sessionId, questions, answers, markedForReview, isSubmitting } = get();
+    const { sessionId, questions, answers, isSubmitting } = get();
     if (!sessionId || isSubmitting) return;
 
-    set({ isSubmitting: true });
+    set({ isSubmitting: true, errorMessage: null, errorType: 'none' });
 
-    // Build answer payload
     const answerPayload = questions.map((q) => ({
       questionId: q.id,
       selectedAnswer: answers[q.id] || null,
     }));
 
     try {
-      const res = await fetch('/api/exam/submit', {
+      const data = await apiFetch<{ success: boolean; result?: ExamResult; error?: string }>('/api/exam/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
           answers: answerPayload,
           violations: get().violations,
         }),
       });
-      const data = await res.json();
 
-      if (data.success) {
+      if (data.success && data.result) {
         get().stopTimer();
         set({
           isExamActive: false,
           isSubmitting: false,
           result: data.result,
+          errorMessage: null,
+          errorType: 'none',
         });
       } else {
-        set({ isSubmitting: false, errorMessage: data.error || 'Submission failed' });
+        set({
+          isSubmitting: false,
+          errorMessage: data.error || 'Exam submission failed. Your answers may not have been saved.',
+          errorType: 'invalid',
+        });
       }
-    } catch {
-      set({ isSubmitting: false, errorMessage: 'Network error during submission' });
+    } catch (err) {
+      const classified = classifyError(err);
+      set({
+        isSubmitting: false,
+        errorMessage: classified.isNetworkError
+          ? 'Network error while submitting. Your answers are still saved locally. Please check your connection and try submitting again.'
+          : classified.message,
+        errorType: classified.isNetworkError ? 'network' : 'server',
+      });
     }
   },
 
@@ -297,8 +346,11 @@ export const useExamStore = create<ExamState>()((set, get) => ({
       isExamLoading: false,
       isSubmitting: false,
       errorMessage: null,
+      errorType: 'none',
     });
   },
+
+  clearError: () => set({ errorMessage: null, errorType: 'none' }),
 
   getQuestionStatus: (questionId) => {
     const { answers, markedForReview } = get();

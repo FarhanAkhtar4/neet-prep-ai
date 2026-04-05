@@ -2,17 +2,19 @@
 
 import { useState } from 'react';
 import { useAppStore } from '@/store/app-store';
-import { GraduationCap, Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react';
+import { GraduationCap, Eye, EyeOff, ArrowLeft, Loader2, WifiOff, ServerCrash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 export function AuthPage() {
   const { login, register, setView } = useAppStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorType, setErrorType] = useState<'validation' | 'network' | 'server' | 'auth'>('validation');
   const [showPassword, setShowPassword] = useState(false);
 
   // Login form
@@ -30,12 +32,22 @@ export function AuthPage() {
     setError('');
     if (!loginEmail || !loginPassword) {
       setError('Please fill all fields');
+      setErrorType('validation');
       return;
     }
     setLoading(true);
-    const success = await login(loginEmail, loginPassword);
-    if (!success) {
-      setError('Invalid email or password');
+    const result = await login(loginEmail, loginPassword);
+    if (!result.success) {
+      setError(result.error || 'Login failed');
+      // Classify the error type
+      const msg = result.error?.toLowerCase() || '';
+      if (msg.includes('connect') || msg.includes('network') || msg.includes('internet')) {
+        setErrorType('network');
+      } else if (msg.includes('server') || msg.includes('500') || msg.includes('unavailable')) {
+        setErrorType('server');
+      } else {
+        setErrorType('auth');
+      }
     }
     setLoading(false);
   };
@@ -45,23 +57,56 @@ export function AuthPage() {
     setError('');
     if (!regName || !regEmail || !regPassword || !regConfirm) {
       setError('Please fill all fields');
+      setErrorType('validation');
       return;
     }
     if (regPassword.length < 6) {
       setError('Password must be at least 6 characters');
+      setErrorType('validation');
       return;
     }
     if (regPassword !== regConfirm) {
       setError('Passwords do not match');
+      setErrorType('validation');
       return;
     }
     setLoading(true);
-    const success = await register(regName, regEmail, regPassword);
-    if (!success) {
-      setError('Registration failed. Email may already exist.');
+    const result = await register(regName, regEmail, regPassword);
+    if (!result.success) {
+      setError(result.error || 'Registration failed. Email may already exist.');
+      const msg = result.error?.toLowerCase() || '';
+      if (msg.includes('connect') || msg.includes('network') || msg.includes('internet')) {
+        setErrorType('network');
+      } else if (msg.includes('server') || msg.includes('500') || msg.includes('unavailable')) {
+        setErrorType('server');
+      } else {
+        setErrorType('auth');
+      }
     }
     setLoading(false);
   };
+
+  const getErrorConfig = () => {
+    switch (errorType) {
+      case 'network':
+        return {
+          icon: <WifiOff className="h-4 w-4 text-red-500" />,
+          className: 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+        };
+      case 'server':
+        return {
+          icon: <ServerCrash className="h-4 w-4 text-amber-500" />,
+          className: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+        };
+      default:
+        return {
+          icon: null,
+          className: 'bg-destructive/10 text-destructive border-destructive/20',
+        };
+    }
+  };
+
+  const errorConfig = getErrorConfig();
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8">
@@ -95,8 +140,9 @@ export function AuthPage() {
               <CardContent>
                 <form onSubmit={handleLogin} className="space-y-4">
                   {error && (
-                    <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-                      {error}
+                    <div className={cn('flex items-start gap-2.5 text-sm p-3 rounded-md border', errorConfig.className)}>
+                      {errorConfig.icon}
+                      <span>{error}</span>
                     </div>
                   )}
                   <div className="space-y-2">
@@ -152,8 +198,9 @@ export function AuthPage() {
               <CardContent>
                 <form onSubmit={handleRegister} className="space-y-4">
                   {error && (
-                    <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-                      {error}
+                    <div className={cn('flex items-start gap-2.5 text-sm p-3 rounded-md border', errorConfig.className)}>
+                      {errorConfig.icon}
+                      <span>{error}</span>
                     </div>
                   )}
                   <div className="space-y-2">

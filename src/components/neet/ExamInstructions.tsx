@@ -11,14 +11,19 @@ import {
   CheckCircle2,
   Play,
   Loader2,
+  WifiOff,
+  ServerCrash,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 export function ExamInstructions() {
   const { setView, isAuthenticated } = useAppStore();
-  const { loadQuestions, startExam, isExamLoading } = useExamStore();
+  const { loadQuestions, startExam, isExamLoading, errorMessage, errorType, clearError } = useExamStore();
 
   const handleStart = async () => {
     if (!isAuthenticated) {
@@ -26,7 +31,7 @@ export function ExamInstructions() {
       return;
     }
 
-    // Load questions first
+    clearError();
     const loaded = await loadQuestions();
     if (loaded) {
       await startExam();
@@ -34,6 +39,7 @@ export function ExamInstructions() {
         setView('exam');
       }
     }
+    // If loadQuestions returned false, errorMessage/errorType are already set in the store
   };
 
   const rules = [
@@ -69,8 +75,62 @@ export function ExamInstructions() {
     },
   ];
 
+  // Render error block based on error type
+  const renderError = () => {
+    if (!errorMessage) return null;
+
+    const errorConfig = {
+      network: {
+        icon: <WifiOff className="h-8 w-8 text-red-500" />,
+        bg: 'bg-red-50 dark:bg-red-950/40',
+        border: 'border-red-200 dark:border-red-800',
+        textColor: 'text-red-700 dark:text-red-300',
+        title: 'No Internet Connection',
+        description: 'Could not reach the server. Please check your internet connection and try again.',
+      },
+      server: {
+        icon: <ServerCrash className="h-8 w-8 text-amber-500" />,
+        bg: 'bg-amber-50 dark:bg-amber-950/40',
+        border: 'border-amber-200 dark:border-amber-800',
+        textColor: 'text-amber-700 dark:text-amber-300',
+        title: 'Server Error',
+        description: errorMessage,
+      },
+      invalid: {
+        icon: <AlertCircle className="h-8 w-8 text-destructive" />,
+        bg: 'bg-destructive/5',
+        border: 'border-destructive/20',
+        textColor: 'text-destructive',
+        title: 'Unable to Load Exam',
+        description: errorMessage,
+      },
+      none: null,
+    };
+
+    const cfg = errorConfig[errorType];
+    if (!cfg) return null;
+
+    return (
+      <div className={cn('rounded-lg border-2 p-6 text-center space-y-3', cfg.bg, cfg.border)}>
+        <div className="flex justify-center">{cfg.icon}</div>
+        <div>
+          <h3 className={cn('font-semibold text-lg', cfg.textColor)}>{cfg.title}</h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">{cfg.description}</p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={handleStart}
+          className="gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Try Again
+        </Button>
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -82,13 +142,20 @@ export function ExamInstructions() {
         </div>
       </nav>
 
-      <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto">
+      <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto flex-1">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Exam Instructions</h1>
           <p className="text-muted-foreground">
             Please read all instructions carefully before starting the exam.
           </p>
         </div>
+
+        {/* API Error Display */}
+        {errorMessage && (
+          <div className="mb-8">
+            {renderError()}
+          </div>
+        )}
 
         {/* Rules */}
         <div className="space-y-4 mb-8">

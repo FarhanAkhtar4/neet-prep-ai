@@ -10,10 +10,11 @@ import {
   Trophy,
   Clock,
   Target,
-  ChevronRight,
   Loader2,
   BarChart3,
   AlertTriangle,
+  WifiOff,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,15 +37,27 @@ export function Dashboard() {
   const { user, logout, setView } = useAppStore();
   const [history, setHistory] = useState<ExamHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyError, setHistoryError] = useState('');
 
   useEffect(() => {
     async function fetchHistory() {
+      setLoadingHistory(true);
+      setHistoryError('');
       try {
         const res = await fetch('/api/user/history');
+        if (!res.ok) {
+          setHistoryError(`Server returned error (${res.status}). Exam history is unavailable.`);
+          setLoadingHistory(false);
+          return;
+        }
         const data = await res.json();
-        if (data.success) setHistory(data.sessions);
-      } catch {
-        // ignore
+        if (data.success) {
+          setHistory(data.sessions || []);
+        } else {
+          setHistoryError(data.error || 'Failed to load exam history.');
+        }
+      } catch (err) {
+        setHistoryError('Unable to connect to the server. Exam history could not be loaded. Check your internet connection.');
       }
       setLoadingHistory(false);
     }
@@ -63,7 +76,7 @@ export function Dashboard() {
       : null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -82,7 +95,7 @@ export function Dashboard() {
         </div>
       </nav>
 
-      <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex-1">
         {/* Welcome */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">
@@ -180,6 +193,24 @@ export function Dashboard() {
             {loadingHistory ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : historyError ? (
+              <div className="flex flex-col items-center text-center py-8 gap-4">
+                <div className="h-12 w-12 rounded-full bg-red-50 dark:bg-red-950/30 flex items-center justify-center">
+                  <WifiOff className="h-6 w-6 text-red-500" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm mb-1">Could not load exam history</p>
+                  <p className="text-sm text-muted-foreground max-w-sm">{historyError}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.location.reload()}
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                  Retry
+                </Button>
               </div>
             ) : history.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">

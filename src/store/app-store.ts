@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiFetch, type ApiError, isApiError } from '@/lib/api';
 
 export type AppView = 'landing' | 'auth' | 'dashboard' | 'instructions' | 'exam' | 'results';
 
@@ -15,12 +16,22 @@ interface AppState {
   user: UserInfo | null;
   isAuthenticated: boolean;
   _hydrated: boolean;
+
+  // API connection
+  apiConnected: boolean | null; // null = haven't checked yet
+  apiChecking: boolean;
+
+  // Last API error message (for displaying in forms)
+  lastApiError: string | null;
+
   setView: (view: AppView) => void;
   setUser: (user: UserInfo | null) => void;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   hydrate: () => void;
+  setApiStatus: (connected: boolean | null, checking?: boolean) => void;
+  clearApiError: () => void;
 }
 
 export const useAppStore = create<AppState>()((set, get) => ({
@@ -28,6 +39,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
   user: null,
   isAuthenticated: false,
   _hydrated: false,
+  apiConnected: null,
+  apiChecking: false,
+  lastApiError: null,
 
   setView: (view) => set({ view }),
 
@@ -38,48 +52,50 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }),
 
   login: async (email: string, password: string) => {
+    set({ lastApiError: null });
     try {
-      const res = await fetch('/api/auth/login', {
+      const data = await apiFetch<{ success: boolean; user?: Record<string, string>; error?: string }>('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
       if (data.success) {
-        const user = { ...data.user, plan: data.user.plan as 'free' | 'pro' };
-        set({ user, isAuthenticated: true, view: 'dashboard' });
+        const user = { ...(data.user as unknown as UserInfo), plan: (data.user as unknown as UserInfo).plan };
+        set({ user, isAuthenticated: true, view: 'dashboard', apiConnected: true });
         if (typeof window !== 'undefined') {
           localStorage.setItem('neet-user', JSON.stringify(user));
           localStorage.setItem('neet-auth', 'true');
         }
-        return true;
+        return { success: true };
       }
-      return false;
-    } catch {
-      return false;
+      return { success: false, error: data.error || 'Login failed' };
+    } catch (err) {
+      const apiErr = isApiError(err) ? err : { message: 'An unexpected error occurred.' };
+      set({ lastApiError: apiErr.message });
+      return { success: false, error: apiErr.message };
     }
   },
 
   register: async (name: string, email: string, password: string) => {
+    set({ lastApiError: null });
     try {
-      const res = await fetch('/api/auth/register', {
+      const data = await apiFetch<{ success: boolean; user?: Record<string, string>; error?: string }>('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
       });
-      const data = await res.json();
       if (data.success) {
-        const user = { ...data.user, plan: data.user.plan as 'free' | 'pro' };
-        set({ user, isAuthenticated: true, view: 'dashboard' });
+        const user = { ...(data.user as unknown as UserInfo), plan: (data.user as unknown as UserInfo).plan };
+        set({ user, isAuthenticated: true, view: 'dashboard', apiConnected: true });
         if (typeof window !== 'undefined') {
           localStorage.setItem('neet-user', JSON.stringify(user));
           localStorage.setItem('neet-auth', 'true');
         }
-        return true;
+        return { success: true };
       }
-      return false;
-    } catch {
-      return false;
+      return { success: false, error: data.error || 'Registration failed' };
+    } catch (err) {
+      const apiErr = isApiError(err) ? err : { message: 'An unexpected error occurred.' };
+      set({ lastApiError: apiErr.message });
+      return { success: false, error: apiErr.message };
     }
   },
 
@@ -106,4 +122,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
       set({ _hydrated: true });
     }
   },
+
+  setApiStatus: (connected, checking = false) =>
+    set({ apiConnected: connected, apiChecking: checking }),
+
+  clearApiError: () => set({ lastApiError: null }),
 }));
