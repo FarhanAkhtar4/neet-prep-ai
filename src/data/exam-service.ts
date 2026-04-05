@@ -1,24 +1,19 @@
 import type { Question } from './types';
+import questionsData from '@/data/questions.json';
 
 // Static questions loaded from JSON file (works everywhere, including Vercel serverless)
-let _questions: Question[] | null = null;
+const _questions: Question[] = questionsData as Question[];
 
 export async function getQuestions(): Promise<Question[]> {
-  if (!_questions) {
-    const data = await import('@/data/questions.json');
-    _questions = data.default as Question[];
-  }
   return _questions;
 }
 
 export async function getQuestionById(id: string): Promise<Question | undefined> {
-  const questions = await getQuestions();
-  return questions.find((q) => q.id === id);
+  return _questions.find((q) => q.id === id);
 }
 
 export async function getQuestionsBySubject(subject: string): Promise<Question[]> {
-  const questions = await getQuestions();
-  return questions.filter((q) => q.subject === subject);
+  return _questions.filter((q) => q.subject === subject);
 }
 
 export interface ExamResult {
